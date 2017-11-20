@@ -1,8 +1,25 @@
 # Get all boot time entries from local system and show Graph
 # Works also with Windows 7 Powershell 2.0
+# Run this script with Administrator privileges. Otherwise script can't read Event Log entries
 #
 # Petri.Paavola@yodamiitti.fi
-#
+
+
+function Test-Administrator {  
+    $user = [Security.Principal.WindowsIdentity]::GetCurrent();
+    (New-Object Security.Principal.WindowsPrincipal $user).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)  
+}
+
+# If user is NOT Administrator
+if (-not (Test-Administrator)) {
+    $OriginalColor = $host.ui.RawUI.ForegroundColor
+    $host.ui.RawUI.ForegroundColor = "Red"
+    Write-Output "`nYou need Administrator privileges to read Event Logs!"
+    Write-Output "Run this script with Run As Administrator`n"
+    $host.ui.RawUI.ForegroundColor = $OriginalColor
+
+    Exit 0
+}
 
 # Windows 7 Powershell 2.0 compatibility
 #$scriptPath = split-path -parent $MyInvocation.MyCommand.Definition
@@ -57,7 +74,7 @@ Write-Output "Computer installed: $($ComputerInstallDate)"
 $Chart.Titles[0].Font = "Arial,13pt"
 $Chart.Titles[0].Alignment = "topCenter"
 
-$eventList = Get-WinEvent -FilterHashtable @{logname="Microsoft-Windows-Diagnostics-Performance/Operational"; id=100}
+$eventList = Get-WinEvent -FilterHashtable @{logname = "Microsoft-Windows-Diagnostics-Performance/Operational"; id = 100}
 
 $DateValues = @()
 $BootTimeValues = @()
@@ -65,50 +82,50 @@ $PostBootTimeValues = @()
 
 foreach ($event in $eventList) {
 
-	$eventXML = [xml]$event.ToXml()
-	$bootstart = $eventXML.SelectSingleNode("//*[@Name='BootStartTime']")."#text"
-	$bootend   = $eventXML.SelectSingleNode("//*[@Name='BootEndTime']")."#text"
-	$boottime  = $eventXML.SelectSingleNode("//*[@Name='BootTime']")."#text"
-	$mainboottime = $eventXML.SelectSingleNode("//*[@Name='MainPathBootTime']")."#text"
-	$postboottime = $eventXML.SelectSingleNode("//*[@Name='BootPostBootTime']")."#text"
+    $eventXML = [xml]$event.ToXml()
+    $bootstart = $eventXML.SelectSingleNode("//*[@Name='BootStartTime']")."#text"
+    $bootend = $eventXML.SelectSingleNode("//*[@Name='BootEndTime']")."#text"
+    $boottime = $eventXML.SelectSingleNode("//*[@Name='BootTime']")."#text"
+    $mainboottime = $eventXML.SelectSingleNode("//*[@Name='MainPathBootTime']")."#text"
+    $postboottime = $eventXML.SelectSingleNode("//*[@Name='BootPostBootTime']")."#text"
 
-	$pos = $bootstart.IndexOf("T")
-	$bootstartDate = $bootstart.Substring(0, $pos)
-	$bootstartTime = $bootstart.Substring($pos+1)
-	$pos = $bootstartTime.IndexOf(".")
-	$bootstartTime = $bootstartTime.Substring(0, $pos)
+    $pos = $bootstart.IndexOf("T")
+    $bootstartDate = $bootstart.Substring(0, $pos)
+    $bootstartTime = $bootstart.Substring($pos + 1)
+    $pos = $bootstartTime.IndexOf(".")
+    $bootstartTime = $bootstartTime.Substring(0, $pos)
 	
-	$bootstart = $bootstart.replace('T','_')
+    $bootstart = $bootstart.replace('T', '_')
 
-	$pos = $bootend.IndexOf("T")
-	$bootendDate = $bootend.Substring(0, $pos)
-	$bootendTime = $bootend.Substring($pos+1)
-	$pos = $bootendTime.IndexOf(".")
-	$bootendTime = $bootendTime.Substring(0, $pos)
+    $pos = $bootend.IndexOf("T")
+    $bootendDate = $bootend.Substring(0, $pos)
+    $bootendTime = $bootend.Substring($pos + 1)
+    $pos = $bootendTime.IndexOf(".")
+    $bootendTime = $bootendTime.Substring(0, $pos)
 
 	
-	$bootend = $bootend.replace('T','_')
+    $bootend = $bootend.replace('T', '_')
 			
-	# Change date/time to Finnish format (sorry :)    day.month.year
-	$day = $bootstart.Tostring().SubString(8,2)
-	$month = $bootstart.Tostring().SubString(5,2)
-	$year = $bootstart.Tostring().SubString(0,4)
-	$bootStartTimeDDMMYYY = "$($day).$($month).$($year)"
+    # Change date/time to Finnish format (sorry :)    day.month.year
+    $day = $bootstart.Tostring().SubString(8, 2)
+    $month = $bootstart.Tostring().SubString(5, 2)
+    $year = $bootstart.Tostring().SubString(0, 4)
+    $bootStartTimeDDMMYYY = "$($day).$($month).$($year)"
 	
-	$boottime = [Math]::Truncate($boottime/1000)
-	$mainboottime = [Math]::Truncate($mainboottime/1000)
-	$postboottime = [Math]::Truncate($postboottime/1000)
+    $boottime = [Math]::Truncate($boottime / 1000)
+    $mainboottime = [Math]::Truncate($mainboottime / 1000)
+    $postboottime = [Math]::Truncate($postboottime / 1000)
 	
-	$boottimes.add($bootstart, $mainboottime)
+    $boottimes.add($bootstart, $mainboottime)
 
-	$DateValues += $bootStartTimeDDMMYYY
-	$BootTimeValues += $mainboottime
-	$PostBootTimeValues += $postboottime
+    $DateValues += $bootStartTimeDDMMYYY
+    $BootTimeValues += $mainboottime
+    $PostBootTimeValues += $postboottime
 
 
-	Write-Output "$($env:COMPUTERNAME), Date:$($bootStartTimeDDMMYYY), BootStart:$($bootstartTime), BootEnd:$($bootendTime), MainBootTime:$($mainboottime), PostBootTime:$($postboottime), BootTime:$($boottime)"
+    Write-Output "$($env:COMPUTERNAME), Date:$($bootStartTimeDDMMYYY), BootStart:$($bootstartTime), BootEnd:$($bootendTime), MainBootTime:$($mainboottime), PostBootTime:$($postboottime), BootTime:$($boottime)"
 
-	$bootcount=""; $bootstart=""; $bootend=""; $boottime=""; $mainboottime=""; $postboottime="";
+    $bootcount = ""; $bootstart = ""; $bootend = ""; $boottime = ""; $mainboottime = ""; $postboottime = "";
 }   
   
     
@@ -125,11 +142,11 @@ $Chart.Series["BootPostBootTime"].Points.DataBindXY($DateValues, $PostBootTimeVa
 
 # display the chart on a form 
 $Chart.Anchor = [System.Windows.Forms.AnchorStyles]::Bottom -bor [System.Windows.Forms.AnchorStyles]::Right -bor 
-                [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left 
+[System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left 
 $Form = New-Object Windows.Forms.Form 
 $Form.Text = "PowerShell Chart" 
 $Form.Width = 800 
 $Form.Height = 500 
 $Form.controls.add($Chart) 
-$Form.Add_Shown({$Form.Activate()}) 
+$Form.Add_Shown( {$Form.Activate()}) 
 $Form.ShowDialog()
