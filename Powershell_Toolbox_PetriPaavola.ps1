@@ -1,5 +1,5 @@
-﻿# Powershell_toolbox_PetriPaavola.ps1
-# 20181205
+# Powershell_toolbox_PetriPaavola.ps1
+# 20190301
 #
 # Collection of Powershell-commands, tips and tricks mostly related to Windows management
 #
@@ -12,12 +12,7 @@
 # This script came from
 # https://github.com/petripaavola/Windows
 #
-# Changelog:
-#
-# 20181205
-# First public launch.
-# There are tons of examples coming here from now on, have fun :)
-
+# Updated 20190228
 
 
 # Just to make sure we will NEVER ever run this script
@@ -149,7 +144,10 @@ $env:PSModulePath
 # Show previous commands
 Get-History
 Get-History 10
+# Alias h
 
+# Type #number and tab to extract history command to command line
+# Thanks Jere for tip ;)
 
 
 # Show information about object
@@ -347,9 +345,62 @@ else {
 #### Find Image File Execution registry entries ####
 
 
-
-
 ########## Regedit ##########
+
+#region Custom object
+
+$properties = @{
+	VMName = 'VM01'
+	OS = 'Windows 10'
+	Admin = 'SuperHero'
+}
+	
+$CustomObject = New-Object -TypeName PSObject -Prop $properties
+$CustomObject
+	
+######################################
+
+$CustomObject = New-Object -TypeName psobject 
+$CustomObject | Add-Member -MemberType NoteProperty -Name VMName -Value 'VM01'
+$CustomObject | Add-Member -MemberType NoteProperty -Name OS -Value 'Windows 10'
+$CustomObject | Add-Member -MemberType NoteProperty -Name Admin -Value 'SuperHero'
+$CustomObject
+
+######################################
+	
+$CustomObjects = @()
+1..9 | Foreach-Object {
+
+	$properties = @{
+		VMName = "VM$_"
+		OS = 'Windows 10'
+		Admin = 'SuperHero'
+	}
+
+	$CustomObjects += New-Object -TypeName PSObject -Prop $properties
+}	
+
+$CustomObjects
+$CustomObjects | Out-GridView
+
+######################################
+
+
+#endregion Custom object
+
+
+########## clip Set-Clipboard Get-Clipboard ##########
+
+# List all cab-files and copy names to clipboard so you can paste it to somewhere else
+# We use -Expandproperty so we get filenames only without header and we really get only propertyvalue (Set-Clipboard accepts objects)
+get-childitem *.cab| Select -Expandproperty Name | Set-Clipboard
+
+# Legacy version using clip.exe
+# We use -Expandproperty so we get filenames only without header information
+get-childitem *.cab| Select -Expandproperty Name | Clip
+
+########## clip Set-Clipboard Get-Clipboard ##########
+
 
 ########## Secure string - get-credential ##########
 
@@ -704,6 +755,41 @@ Disable-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcp
 # Disable Ipv6 binding on all physical WLAN-adapters
 Get-NetAdapter -Physical | Where { $_.InterfaceType -eq 71 } | Foreach { Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 }
 
+#region regexp
+################################# Regexp. Fun staff starts here :) ######################################
+
+# Learn and test your regexps with this website
+#
+#           https://regex101.com/
+#
+
+# Basic example
+
+$regex = '^(.*)([0-9]{3})(bar)$'
+$string = 'foo123bar'
+$string -match $regex
+
+$Matches
+$Matches[1]
+
+
+###
+
+# Greedy vs. lazy regex
+
+# Greedy - no question mark. This will not stop on first </td> because there is another one later
+$string = '<tr><td>foo</td><td>bar</td></tr>'
+$regex = '^(<tr>)(.*)<\/td>.*$'
+
+# Lazy - question mark stops as soon as it finds first </td>
+$string = '<tr><td>foo</td><td>bar</td></tr>'
+$regex = ^(<tr>)(.*?)<\/td>.*$
+
+
+
+
+################################# Regexp ######################################
+#endregion regexp
 
 #######################################################################
 
@@ -862,8 +948,19 @@ exit
 import-module 'E:\Program Files\Microsoft Configuration Manager\AdminConsole\bin\ConfigurationManager.psd1'
 Set-Location YOD:
 
+# Load SCCM/ConfigMgr Powershell-module
+# Not tested yet but should work
+$SCCMSitePath = "<SITECODE>"
+Import-Module (Join-Path $(Split-Path $env:SMS_ADMIN_UI_PATH) ConfigurationManager.psd1)
+#Set current directory to SCCM site
+Set-Location -Path $SCCMSitePath
+
+
 # SCCM/ConfigMgr find device
 Get-CMDevice -Name client02
+
+# ResourceId
+$ResourceId = (Get-CMDevice -Name "ComputerName").ResourceID
 
 # SCCM/ConfigMgr Remove device
 Get-CMDevice -Name client02 | Remove-CMDevice
@@ -873,13 +970,30 @@ Get-CMDevice -Name client02 | Remove-CMDevice -Force
 
 # Add computer to SCCM/ConfigMgr collection in different ways
 Add-CMDeviceCollectionDirectMembershipRule -CollectionName  "Collection_name" -ResourceId $(Get-CMDevice -Name "ComputerName").ResourceID
-Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceId $(Get-CMDevice -Name $Computer).ResourceID
-Add-CMDeviceCollectionDirectMembershipRule -CollectionID $CollectionID -ResourceId $(Get-CMDevice -Name $Computer).ResourceID
+Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceId $(Get-CMDevice -Name $ComputerName).ResourceID
+Add-CMDeviceCollectionDirectMembershipRule -CollectionID $CollectionID -ResourceId $(Get-CMDevice -Name $ComputerName).ResourceID
 Get-CMDeviceCollection -name "Windows 10 1709.1 Upgrade TS"|Add-CMDeviceCollectionDirectMembershipRule -ResourceId (Get-CMDevice -Name "ComputerName").ResourceID
+
+# Get list of computer names from text file and add them to collection
+#
+# Notice that this approach have problems after 500 devices. Use Device object instead of resourceId
+#
+# I will update these examples later
+#
+Get-Content "C:\temp\computers.txt" | Foreach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionID "YOD0001A" -ResourceID (Get-CMDevice -Name $_).ResourceID }
+Get-Content "C:\temp\computers.txt" | Foreach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceID (Get-CMDevice -Name $_).ResourceID }
 
 # Check if SCCM client is in provisioning mode
 ls HKLM:\Software\Microsoft\CcmExec
 Get-WmiObject -Namespace "root\ccm" -Class "SMS_Client"
+
+# Find Package by Id
+# https://docs.microsoft.com/en-us/powershell/module/configurationmanager/get-cmpackage?view=sccm-ps
+Get-CMPackage -Id "packageId"
+
+# Find Deployment by Id
+# https://docs.microsoft.com/en-us/powershell/module/configurationmanager/get-cmdeployment?view=sccm-ps
+Get-CMDeployment -DeploymentId "DeploymentId"
 
 
 # SCCM check reboot pending. Good article how look from SCCM WMI
@@ -1295,6 +1409,33 @@ Catch {
 
 #######################################################################
 
+# Speech
+
+# https://mcpmag.com/articles/2018/03/07/talking-through-powershell.aspx
+
+Add-Type -AssemblyName System.speech
+$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$speak.Speak('Hello...')
+
+$speak.Speak("The current date and time is $(Get-Date)")
+
+$speak.Volume = 100
+
+$speak.Rate = 10
+$speak.Speak("The current date and time is $(Get-Date)")
+
+$speak.Rate = -10
+$speak.Speak("The current date and time is $(Get-Date)")
+
+$speak.voice
+
+$speak.GetInstalledVoices()
+$speak.GetInstalledVoices() | Foreach { $_.VoiceInfo }
+
+# Save to wav file
+$speak.SetOutputToWaveFile("$($PWD)\Speech.wav")
+$speak.Speak("Hello there!")
+Get-Item .\Speech.wav
 
 
 #######################################################################
