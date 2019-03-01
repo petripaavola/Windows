@@ -791,6 +791,28 @@ $regex = ^(<tr>)(.*?)<\/td>.*$
 ################################# Regexp ######################################
 #endregion regexp
 
+#region Import export xml json csv
+
+$vm = get-VM | where {$_.Name -eq 'client01'}
+
+#Export object for later analysis
+$vm | Export-Clixml -Path ./vm.xml
+
+#Import from XML file
+$vm_from_xml = Import-CliXml -Path .\vm.xml
+
+
+#Export JSON / file
+$vm_json = $vm | ConvertTo-JSON
+$vm_json | Out-File -FilePath ./vm_json.json
+
+#Import JSON from file
+# Read file as a whole - multi-line string
+$vm_from_imported_json = Get-Content -Raw -Path .\vm_json.json | ConvertFrom-JSON
+
+
+#endregion Import export xml json csv
+
 #######################################################################
 
 # Display friendly file sizes in PowerShell
