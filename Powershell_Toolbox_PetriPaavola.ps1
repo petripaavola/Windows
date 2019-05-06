@@ -1,5 +1,5 @@
 # Powershell_toolbox_PetriPaavola.ps1
-# 20190301
+# 20190506
 #
 # Collection of Powershell-commands, tips and tricks mostly related to Windows management
 #
@@ -11,8 +11,6 @@
 #
 # This script came from
 # https://github.com/petripaavola/Windows
-#
-# Updated 20190228
 
 
 # Just to make sure we will NEVER ever run this script
@@ -24,20 +22,20 @@ Exit
 ############################################################
 
 # Check executionpolicies status
-get-executionpolicy -list
+Get-ExecutionPolicy -list
 
 # Set executionpolicy bypass for different scopes
 
 # Allow running Powershell scripts
 # These does NOT need Admin rights
-Set-Executionpolicy -ExecutionPolicy bypass -Scope Process
-Set-Executionpolicy -ExecutionPolicy bypass -Scope CurrentUser
+Set-ExecutionPolicy -ExecutionPolicy bypass -Scope Process
+Set-ExecutionPolicy -ExecutionPolicy bypass -Scope CurrentUser
 
 # Allow running Powershell scripts machine wide
 # Need Admin rights
-Set-Executionpolicy -ExecutionPolicy bypass -Scope LocalMachine
-Set-Executionpolicy -ExecutionPolicy bypass
-Set-Executionpolicy bypass
+Set-ExecutionPolicy -ExecutionPolicy bypass -Scope LocalMachine
+Set-ExecutionPolicy -ExecutionPolicy bypass
+Set-ExecutionPolicy bypass
 
 
 # Bypass Powershell executionpolicies. This bypasses enforced signature requirement
@@ -56,20 +54,57 @@ $PSVersionTable
 $PSVersionTable.PSVersion
 
 # Powershell home folder
-cd $pshome
+Set-Location $pshome
 
 
 # List files in directory (dir / ls)
-get-childitem c:\
+Get-ChildItem c:\
+
+# Get folder size (and subfolders)
+Get-ChildItem C:\temp | Measure-Object -Sum Length
+
+# Get folder/directory size (and subfolders) recursively
+(Get-ChildItem -Recurse C:\temp | Measure-Object -Sum Length).Sum
+
+# Get folder/directory size (and subfolders) recursively. Show gigabytes
+(Get-ChildItem -Recurse C:\temp | Measure-Object -Sum Length).Sum / 1gb
+
+# Get folder/directory size (and subfolders) recursively. Round gigabytes without decimals
+[math]::Round((Get-ChildItem -Recurse C:\temp | Measure-Object -Sum Length).Sum / 1gb)
+
 
 
 # Get computer processes
 Get-Process
 Get-Process csrss
 
+$process = Get-Process explorer -IncludeUserName
+$process.UserName
+
+Get-Process explorer -IncludeUserName | Select-Object -ExpandProperty UserName
+
+######
+# Process wmi has GetOwner()
+
+$explorerprocesses = @(Get-WmiObject -Query "Select * FROM Win32_Process WHERE Name='explorer.exe'" -ErrorAction SilentlyContinue)
+if ($explorerprocesses.Count -eq 0) {
+    "No explorer process found / Nobody interactively logged on"
+}
+else {
+    foreach ($i in $explorerprocesses) {
+        $Username = $i.GetOwner().User
+        $Domain = $i.GetOwner().Domain
+        $Domain + "\" + $Username + " logged on since: " + ($i.ConvertToDateTime($i.CreationDate))
+    }
+}
+######
+
 # Get services
 Get-Service
 Get-Service BITS
+
+# Restart BITS
+Get-Service BITS | Restart-Service
 
 # Get Disk Information
 Get-Disk
@@ -79,8 +114,10 @@ Get-Disk 0
 Get-NetAdapter
 
 
+
 # Get ComputerInfo. Look alias (alias gin)
-gin
+Get-ComputerInfo
+
 
 
 # List aliases
@@ -91,36 +128,36 @@ alias cd
 New-Alias np c:\windows\notepad.exe
 
 # If we need more complex aliases create Function to Powershell profile
-notepad $profile
+notepad.exe $profile
 
 
 
 # Help
-get-help cmdlet
-get-help get-process
-get-help get-process -examples
-get-help get-process -detailed
-get-help get-process -full
+Get-Help cmdlet
+Get-Help get-process
+Get-Help get-process -examples
+Get-Help get-process -detailed
+Get-Help get-process -full
 
 # Update-help, requires network connection.
-update-help
+Update-Help
 
 # Load help for offline usage
-save-help
+Save-Help
 
 # Load offline helps
 Update-Help -SourcePath C:\temp\Powershell\helps
 
 # Show Graphical Help
-show-command
+Show-Command
 
 
 # Show Cmdlets
 Get-Command
-get-command Get-Pr*
+Get-Command Get-Pr*
 
 # How many Cmdlets exists
-Get-Command | Measure
+Get-Command | Measure-Object
 
 Get-Command | Out-File .\Get-Command.txt
 
@@ -131,8 +168,8 @@ np .\Get-Command.txt
 
 
 # Powershell-documentation
-get-help about*
-get-help about_aliases
+Get-Help about*
+Get-Help about_aliases
 
 
 # Show modulepath
@@ -153,45 +190,45 @@ Get-History 10
 # Show information about object
 | Get-Member
 Get-Process | Get-Member
-Get-Process | gm
-"foobar" | gm
+Get-Process | Get-Member
+"foobar" | Get-Member
 
 # Visualize object graphically with Out-GridView
 Out-GridView
-get-process |Out-GridView
+Get-Process | Out-GridView
 
 # Show all attributes in Out-GridView
-get-process |select -Property * |Out-GridView
+Get-Process | Select-Object -Property * | Out-GridView
 
 # This shown less information
-get-process |fl
+Get-Process | Format-List
 
 # This shows all object's attributes
-get-process |fl *
+Get-Process | Format-List *
 
 
 # Select-object, show first
-get-process | Select-Object -First 1
+Get-Process | Select-Object -First 1
 
 # Get newest file which is written in directory
-get-childitem c:\Powershell -File | sort LastWriteTime | select -last 1
+Get-ChildItem c:\Powershell -File | Sort-Object LastWriteTime | Select-Object -last 1
 
 # Get newest folder which has been written
 #Hae uusin Hakemisto joka on kirjoitettu
-get-childitem c:\Powershell -Directory | sort LastWriteTime | select -last 1
+Get-ChildItem c:\Powershell -Directory | Sort-Object LastWriteTime | Select-Object -last 1
 
 # Count of something
-get-command |measure
-(get-command |measure).Count
+Get-Command | Measure-Object
+(Get-Command | Measure-Object).Count
 
 # Set ReadOnly for files in folder
-Get-ChildItem C:\Powershell\Foreach\ -File | Foreach { Set-ItemProperty $_.Fullname -Name IsReadOnly -Value $true }
+Get-ChildItem C:\Powershell\Foreach\ -File | ForEach-Object { Set-ItemProperty $_.Fullname -Name IsReadOnly -Value $true }
 
 # Set ReadOnly for last written file
-Get-ChildItem C:\Powershell\Foreach\ -File | sort LastWriteTime | select -last 1 | Foreach { Set-ItemProperty $_.Fullname -Name IsReadOnly -Value $true }
+Get-ChildItem C:\Powershell\Foreach\ -File | Sort-Object LastWriteTime | Select-Object -last 1 | ForEach-Object { Set-ItemProperty $_.Fullname -Name IsReadOnly -Value $true }
 
 # Show files which have ReadOnly bit set (IsReadOnly -attribute)
-Get-ChildItem C:\Powershell\Foreach\ -File | Where { $_.IsReadOnly -eq 'True' }
+Get-ChildItem C:\Powershell\Foreach\ -File | Where-Object { $_.IsReadOnly -eq 'True' }
 
 Get-ChildItem C:\Powershell\Foreach\ | Out-File .\FilesInDirectory.txt
 
@@ -215,7 +252,19 @@ $var -is [int]
 ########## Powershell providers PS-Provider ##########
 
 Get-PSProvider
+
+
+# Get drives
 Get-PSDrive
+
+# Get C: -drive used space. Show gigabytes
+(Get-PSDrive -Name C).Used / 1gb
+
+# Get C: -drive used space. Round and show gigabytes with 2 decimals
+[math]::Round(((Get-PSDrive -Name C).Used / 1gb), 2)
+
+# Get C: -drive used space. Round and show gigabytes without decimals
+[math]::Round((Get-PSDrive -Name C).Used / 1gb)
 
 ########## Powershell providers PS-Provider ##########
 
@@ -228,15 +277,52 @@ Get-PSDrive
 # HP EliteDesk 800 G3 DM 35W
 # HP EliteDesk 800 G3 SFF
 # Test if this query is true on Task Sequence run condition
-gwmi -Query 'Select * FROM Win32_ComputerSystem WHERE Model Like "%EliteDesk 800 G3%"'
+Get-WmiObject -Query 'Select * FROM Win32_ComputerSystem WHERE Model Like "%EliteDesk 800 G3%"'
 
 # HP ZBook Studio G3
 # Test if this query is true on Task Sequence run condition
-gwmi -Query 'Select * FROM Win32_ComputerSystem WHERE Model Like "%ZBook Studio G3%"'
+Get-WmiObject -Query 'Select * FROM Win32_ComputerSystem WHERE Model Like "%ZBook Studio G3%"'
 
 
 (Get-WmiObject win32_battery).estimatedChargeRemaining
 (Get-WmiObject win32_battery).EstimatedRunTime
+
+# Check if we are running on battery or not
+# 1 running on battery 
+# 2 connected to AC
+Get-WmiObject Win32_Battery | Select -ExpandProperty BatteryStatus
+
+
+# Check if we are running in battery in Task Sequence
+#
+# Running on battery
+Get-WmiObject -Query 'Select * FROM Win32_Battery WHERE BatteryStatus Like "1"'
+
+# Running on AC
+Get-WmiObject -Query 'Select * FROM Win32_Battery WHERE BatteryStatus Like "2"'
+
+
+###########################
+
+$Win32battery = Get-WmiObject Win32_Battery
+# This does not exist on desktop computers
+if ($Win32battery) {
+	# Win32_battery exist
+
+    if ($Win32battery.BatteryStatus -eq 1) {
+        Write-Host "Laptop running on battery (AC not connected)"
+    }
+
+    if ($Win32battery.BatteryStatus -eq 2) {
+        Write-Host "Laptop running on AC"
+    }
+}
+else {
+    # Did not find Win32_Battery    
+}
+
+###########################
+
 
 # TPM32 WMI
 Get-CimInstance -namespace root\cimv2\security\microsofttpm -class Win32_Tpm
@@ -244,33 +330,49 @@ Get-CimInstance -namespace root\cimv2\security\microsofttpm -class Win32_Tpm
 # Export computer information to xml-files
 $Manufacturer = (Get-WmiObject -Class win32_computersystem).Manufacturer
 $Model = (Get-WmiObject -Class win32_computersystem).Model
-Get-WmiObject Win32_ComputerSystem | Export-CliXml -Path ".\$Manufacturer $Model - Win32_ComputerSystem.xml"
-Get-CIMInstance -ClassName MS_SystemInformation -NameSpace root\WMI | Export-CliXml -Path ".\$Manufacturer $Model - MS_SystemInformation.xml"
+Get-WmiObject Win32_ComputerSystem | Export-Clixml -Path ".\$Manufacturer $Model - Win32_ComputerSystem.xml"
+Get-CimInstance -ClassName MS_SystemInformation -NameSpace root\WMI | Export-Clixml -Path ".\$Manufacturer $Model - MS_SystemInformation.xml"
 
 # Show Installed Applications
 Get-CimInstance Win32_Product
-Get-CimInstance Win32_Product | fl *
+Get-CimInstance Win32_Product | Format-List *
 
-Get-CimInstance Win32_Product | Where {$_.Name -like "*softwarename*"} | Format-List *
+Get-CimInstance Win32_Product | Where-Object { $_.Name -like "*softwarename*" } | Format-List *
 
 # Get MSI package ProductCode
-Get-CimInstance Win32_Product|where {$_.Name -like "*software*"} |select -ExpandProperty identifyingnumber
+Get-CimInstance Win32_Product | Where-Object { $_.Name -like "*software*" } | Select-Object -ExpandProperty identifyingnumber
+
+# If the OEM key in the BIOS or firmware of the device must be used, run the following PowerShell command to get the key:
+Get-CimInstance SoftwareLicensingService | Select-Object -ExpandProperty OA3xOriginalProductKey
 
 
+# Uninstall MSI software
 # Foreach is used here just to get ProductCode value to msiexec-command as parameter. Msiexec does NOT understand pipeline so Foreach is workaround for getting value into variable
 # -outvariable ProductCode could be used too, but then it is NOT oneliner anymore :)
 
 # TEST WHAT WOULD BE Removed
 # All Application by name, find dynamically from WMI and remove MSI-software
-Get-CimInstance Win32_Product|where {$_.Name -like "*softwarename*"} |select -expandproperty identifyingnumber | Foreach { Write-Host "msiexec /x $_" }
+Get-CimInstance Win32_Product | Where-Object { $_.Name -like "*softwarename*" } | Select-Object -expandproperty identifyingnumber | ForEach-Object { Write-Host "msiexec /x $_" }
 
 # Remove First Application by name, find dynamically from WMI and remove MSI-software
-Get-CimInstance Win32_Product|where {$_.Name -like "*softwarename*"} |select -expandproperty identifyingnumber -First 1 | Foreach { & msiexec /x $_  }
+Get-CimInstance Win32_Product | Where-Object { $_.Name -like "*softwarename*" } | Select-Object -expandproperty identifyingnumber -First 1 | ForEach-Object { & msiexec.exe /x $_ }
 
 # Remove All MSI Application by name, find dynamically from WMI and remove MSI-software
-Get-CimInstance Win32_Product|where {$_.Name -like "*softwarename*"} |select -expandproperty identifyingnumber | Foreach { & msiexec /x $_  }
+Get-CimInstance Win32_Product | Where-Object { $_.Name -like "*softwarename*" } | Select-Object -expandproperty identifyingnumber | ForEach-Object { & msiexec.exe /x $_ }
 
 ########## WMI, gwmi, Get-WmiObject, Get-CimInstance End ##########
+
+########## BIOS / UEFI ##########
+
+# Good blog post about BIOS/UEFI and Powershell
+# http://www.systanddeploy.com/2019/03/list-and-change-bios-settings-with.html
+
+
+# Get HP BIOS/UEFI -settings
+Get-WmiObject -namespace root/hp/instrumentedBIOS -Class hp_biosEnumeration
+
+
+########## BIOS / UEFI ##########
 
 
 ########## Regedit registry ##########
@@ -280,8 +382,8 @@ $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\Favo
 if (!(Test-Path $regPath)) { New-Item $regPath -Force | Out-Null }
 
 # Another approach, use hash table and oneliner
-$RegFavorites = @{'HKLM Run' = 'Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'}
-$RegFavorites | Foreach { $_.Name; $_.Value }
+$RegFavorites = @{'HKLM Run' = 'Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' }
+$RegFavorites | ForEach-Object { $_.Name; $_.Value }
 
 New-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Applets\Regedit\Favorites' -Name 'HKLM Run' -Value 'Computer\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -PropertyType 'String' -Force
 
@@ -320,7 +422,7 @@ New-ItemProperty $regPath -Name $Name -Value $value -PropertyType 'ExpandString'
 
 #### Find Image File Execution registry entries ####
 
-$ImageFileExucutionDebuggers = Get-ChildItem 'HKLM:\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options' | foreach { $_ | Where { $_.Property -eq 'Debugger' }}
+$ImageFileExucutionDebuggers = Get-ChildItem 'HKLM:\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options' | ForEach-Object { $_ | Where-Object { $_.Property -eq 'Debugger' } }
 
 # Do something if we found Debugger registry keys
 if ($ImageFileExucutionDebuggers) {
@@ -328,7 +430,7 @@ if ($ImageFileExucutionDebuggers) {
 
     foreach ($Debugger in $ImageFileExucutionDebuggers) {
         $SoftwareName = $Debugger.Name
-        $DebuggerValue = $Debugger | Foreach { (Get-ItemProperty "$($_.PSParentPath)`\$($_.PSChildName)").Debugger }
+        $DebuggerValue = $Debugger | ForEach-Object { (Get-ItemProperty "$($_.PSParentPath)`\$($_.PSChildName)").Debugger }
 
         Write-Host "Software name: $SoftwareName`nValue: $DebuggerValue`n"
     }
@@ -350,9 +452,9 @@ else {
 #region Custom object
 
 $properties = @{
-	VMName = 'VM01'
-	OS = 'Windows 10'
-	Admin = 'SuperHero'
+    VMName = 'VM01'
+    OS     = 'Windows 10'
+    Admin  = 'SuperHero'
 }
 	
 $CustomObject = New-Object -TypeName PSObject -Prop $properties
@@ -369,15 +471,15 @@ $CustomObject
 ######################################
 	
 $CustomObjects = @()
-1..9 | Foreach-Object {
+1..9 | ForEach-Object {
 
-	$properties = @{
-		VMName = "VM$_"
-		OS = 'Windows 10'
-		Admin = 'SuperHero'
-	}
+    $properties = @{
+        VMName = "VM$_"
+        OS     = 'Windows 10'
+        Admin  = 'SuperHero'
+    }
 
-	$CustomObjects += New-Object -TypeName PSObject -Prop $properties
+    $CustomObjects += New-Object -TypeName PSObject -Prop $properties
 }	
 
 $CustomObjects
@@ -393,11 +495,11 @@ $CustomObjects | Out-GridView
 
 # List all cab-files and copy names to clipboard so you can paste it to somewhere else
 # We use -Expandproperty so we get filenames only without header and we really get only propertyvalue (Set-Clipboard accepts objects)
-get-childitem *.cab| Select -Expandproperty Name | Set-Clipboard
+Get-ChildItem *.cab | Select-Object -Expandproperty Name | Set-Clipboard
 
 # Legacy version using clip.exe
 # We use -Expandproperty so we get filenames only without header information
-get-childitem *.cab| Select -Expandproperty Name | Clip
+Get-ChildItem *.cab | Select-Object -Expandproperty Name | clip.exe
 
 ########## clip Set-Clipboard Get-Clipboard ##########
 
@@ -449,46 +551,56 @@ $Credentials = New-Object System.Management.Automation.PSCredential ($UserName, 
 ########## Secure string - get-credential ##########
 
 
-########## Get-Date ##########
+########## Date time timespan clock ##########
 
 # Get date for example log file names
 # This returns: 20181204
 (Get-Date).ToString("yyyyMMdd")
 
+$DateTime = Get-Date -Format "yyyyMMddHHmmss"
+
+
+# Time difference
+New-TimeSpan 9:21 17:10
+
+
 ########## Get-Date ##########
+
+
+
 
 
 ########## Windows Hotfix Update ##########
 
 # Show installed hotfix IDs and Date
-get-hotfix|select HotFixID, InstalledOn
+Get-HotFix | Select-Object HotFixID, InstalledOn
 
 # Show installed hotfix IDs, InstallDate and Date (InstallDate is often empty)
-get-hotfix|select HotFixID, InstallDate, InstalledOn
+Get-HotFix | Select-Object HotFixID, InstallDate, InstalledOn
 
 # Search hotfixes installed on certain date
-get-hotfix|where {$_.InstalledOn -like (Get-Date '8.5.2018') }
-get-hotfix|where {$_.InstalledOn -like (Get-Date '5/8/2018') }
+Get-HotFix | Where-Object { $_.InstalledOn -like (Get-Date '8.5.2018') }
+Get-HotFix | Where-Object { $_.InstalledOn -like (Get-Date '5/8/2018') }
 
 # Search hotfixes installed after certain date (-ge = greater than or equal)
-get-hotfix|where {$_.InstalledOn -ge (Get-Date '8.5.2018') }
+Get-HotFix | Where-Object { $_.InstalledOn -ge (Get-Date '8.5.2018') }
 
 # Search hotfixes installed before certain date (-lt = less than or equal)
-get-hotfix|where {$_.InstalledOn -le (Get-Date '8.5.2018') }
+Get-HotFix | Where-Object { $_.InstalledOn -le (Get-Date '8.5.2018') }
 
 # Search hotfixes installed in last X days (change number)
-get-hotfix|where {$_.InstalledOn -ge (Get-Date).AddDays(-10) }
+Get-HotFix | Where-Object { $_.InstalledOn -ge (Get-Date).AddDays(-10) }
 
 # Installed updates in last 10 days
-Get-Hotfix | Where {$_.InstalledOn -gt $(Get-Date).AddDays(-10) -and $_.Description -eq "Update"}
+Get-HotFix | Where-Object { $_.InstalledOn -gt $(Get-Date).AddDays(-10) -and $_.Description -eq "Update" }
 
 
 # Check InstalledOn format and notice it is in datetime-format
-get-hotfix|gm|fl *
-get-hotfix|gm|where {$_.Name -eq 'InstalledOn'}|fl *
+Get-HotFix | Get-Member | Format-List *
+Get-HotFix | Get-Member | Where-Object { $_.Name -eq 'InstalledOn' } | Format-List *
 
 # Show last three installed hotfixe
-Get-Hotfix | Sort-object InstalledOn -Descending | Select -First 3
+Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 3
 
 
 # Get WindowsUpdate Event logs (all IDs), specify how old updates to get as days
@@ -506,10 +618,10 @@ $Events | Format-List -Property *
 ########## Get-WinEvent start ##########
 
 # Scheduled Tasks Event Logs
-$yesterday = (get-date) - (new-timespan -day 1)
+$yesterday = (Get-Date) - (New-TimeSpan -day 1)
 #$events = get-winevent -FilterHashtable @{logname = "Microsoft-Windows-TaskScheduler/Operational"; level = "2"; StartTime = $yesterday}
-$events = get-winevent -FilterHashtable @{logname = "Microsoft-Windows-TaskScheduler/Operational"}
-$events |foreach { $_ }
+$events = Get-WinEvent -FilterHashtable @{logname = "Microsoft-Windows-TaskScheduler/Operational" }
+$events | ForEach-Object { $_ }
 
 
 # Windows Update Event Logs
@@ -523,13 +635,13 @@ $Events
 
 # Get Scheduled Task
 Get-ScheduledTask -TaskName 'Automatic-Device-Join'
-Get-ScheduledTask -TaskName 'Automatic-Device-Join'|fl *
+Get-ScheduledTask -TaskName 'Automatic-Device-Join' | Format-List *
 
 # Get Scheduled Task Action
 (Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties
 ((Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties).Actions
-((Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties) | Where { $_.Name -eq 'Actions' }
-(((Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties) | Where { $_.Name -eq 'Actions' }).Value
+((Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties) | Where-Object { $_.Name -eq 'Actions' }
+(((Get-ScheduledTask -TaskName 'Automatic-Device-Join').CimInstanceProperties) | Where-Object { $_.Name -eq 'Actions' }).Value
 
 ########## Scheduled Tasks ##########
 
@@ -550,18 +662,18 @@ Resume-BitLocker -MountPoint "$env:SystemDrive"
 Get-BitLockerVolume | Resume-BitLocker
 
 # Get Bitlocker status on C-drive
-Get-Bitlockervolume -MountPoint "$env:SystemDrive"
+Get-BitLockerVolume -MountPoint "$env:SystemDrive"
 
 
-$BitlockerKeyProtectorID = ((Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | where {$_.KeyProtectorType -eq "RecoveryPassword" }).KeyProtectorId
-$BitlockerRecoveryKey = ((Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | where {$_.KeyProtectorType -eq "RecoveryPassword" }).RecoveryPassword
+$BitlockerKeyProtectorID = ((Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | Where-Object { $_.KeyProtectorType -eq "RecoveryPassword" }).KeyProtectorId
+$BitlockerRecoveryKey = ((Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | Where-Object { $_.KeyProtectorType -eq "RecoveryPassword" }).RecoveryPassword
 
 # $BitlockerRecoveryKey
 # | Select -ExpandProperty to remove parenthesis () and our command (pipeline) is also readable. Value is printed without headers
-(Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | where {$_.KeyProtectorType -eq "RecoveryPassword" } | Select -ExpandProperty RecoveryPassword
+(Get-BitLockerVolume -MountPoint $env:SystemDrive).KeyProtector | Where-Object { $_.KeyProtectorType -eq "RecoveryPassword" } | Select-Object -ExpandProperty RecoveryPassword
 
 # Backup Bitlocker Recovery Key to AD
-$BitlockerKeyProtectorID = Get-BitLockerVolume -MountPoint $env:SystemDrive | Select -ExpandProperty KeyProtector | where {$_.KeyProtectorType -eq "RecoveryPassword" } | Select -ExpandProperty KeyProtectorId
+$BitlockerKeyProtectorID = Get-BitLockerVolume -MountPoint $env:SystemDrive | Select-Object -ExpandProperty KeyProtector | Where-Object { $_.KeyProtectorType -eq "RecoveryPassword" } | Select-Object -ExpandProperty KeyProtectorId
 Backup-BitLockerKeyProtector -MountPoint "C:" -KeyProtectorId "$BitlockerKeyProtectorID"
 
 # Set Bitlocker PIN to Task Sequence -variable
@@ -572,12 +684,12 @@ $BDEPin = $tsenv.Value("BDEPin")
 # Get AD-object related "sub-objects". In this case Bitlocker Recovery Key
 # Thanks Aapeli ;)
 $ComputerAccount = 'client01'
-$sb = Get-ADComputer $ComputerAccount | Select -ExpandProperty distinguishedname
+$sb = Get-ADComputer $ComputerAccount | Select-Object -ExpandProperty distinguishedname
  
 Get-ADObject -Filter * -SearchBase $sb
-Get-ADObject -Filter * -SearchBase $sb |fl *
-Get-ADObject -Filter {objectclass -eq 'msFVE-RecoveryInformation'} -SearchBase $sb
-Get-ADObject -Filter {objectclass -eq 'msFVE-RecoveryInformation'} -SearchBase $sb | Remove-ADObject -WhatIf
+Get-ADObject -Filter * -SearchBase $sb | Format-List *
+Get-ADObject -Filter { objectclass -eq 'msFVE-RecoveryInformation' } -SearchBase $sb
+Get-ADObject -Filter { objectclass -eq 'msFVE-RecoveryInformation' } -SearchBase $sb | Remove-ADObject -WhatIf
 
 ####################
 
@@ -620,30 +732,30 @@ $VMSwitchName = 'Virtual Switch'
 Get-VM $vmname | Get-VMNetworkAdapter | Connect-VMNetworkAdapter -SwitchName $VMSwitchName
 
 # Remove VM's network
-Get-HNSNetwork | Where Name -like 'Default Switch' | Remove-HNSNetwork
+Get-HnsNetwork | Where-Object Name -like 'Default Switch' | Remove-HnsNetwork
 
 # Remove VM's VMSwitch
 Get-VMSwitch 'Default Switch' | Remove-VMSwitch
 
 # Change selected VMs network to selected network using GUI (Out-GridView)
 $vmswitch = Get-VMSwitch | Out-GridView -Title "Select Network to change for VM(s)" -OutputMode Single
-Get-VM | Out-GridView -Title "Select VM(s) for network change" -passthru | foreach { Get-VM $_.Name | Get-VMNetworkAdapter | Connect-VMNetworkAdapter -SwitchName $VMSwitch.Name }
+Get-VM | Out-GridView -Title "Select VM(s) for network change" -passthru | ForEach-Object { Get-VM $_.Name | Get-VMNetworkAdapter | Connect-VMNetworkAdapter -SwitchName $VMSwitch.Name }
 
 # Start selected VMs - Out-GridView
-Get-VM | Out-GridView -Title "Select VM(s) for start" -passthru | foreach { Start-VM $_ }
+Get-VM | Out-GridView -Title "Select VM(s) for start" -passthru | ForEach-Object { Start-VM $_ }
 
 
 # Set Gen2-vm first boot option to DVD - Out-GridView - single computer
-$vm = Get-VM|Where-Object {$_.VirtualMachineSubType -eq "Generation2"}|Out-GridView -Title "Select VM to boot from DVD" -passthru ; $dvd = Get-VMDvdDrive $vm; Set-VMFirmware $vm -FirstBootDevice $dvd
+$vm = Get-VM | Where-Object { $_.VirtualMachineSubType -eq "Generation2" } | Out-GridView -Title "Select VM to boot from DVD" -passthru ; $dvd = Get-VMDvdDrive $vm; Set-VMFirmware $vm -FirstBootDevice $dvd
 
 # Set Gen2-vm first boot option to DVD - Out-GridView - Out-GridView - Multiple computer
-$vm = Get-VM|Where-Object {$_.VirtualMachineSubType -eq "Generation2"}|Out-GridView -Title "Select VM to boot from DVD" -passthru | foreach { $dvd = Get-VMDvdDrive $_.Name; Set-VMFirmware $_.Name -FirstBootDevice $dvd }
+$vm = Get-VM | Where-Object { $_.VirtualMachineSubType -eq "Generation2" } | Out-GridView -Title "Select VM to boot from DVD" -passthru | ForEach-Object { $dvd = Get-VMDvdDrive $_.Name; Set-VMFirmware $_.Name -FirstBootDevice $dvd }
 
 # Set Gen2-vm first boot option to Network Boot - Out-GridView - single computer
-$vm = Get-VM|Where-Object {$_.VirtualMachineSubType -eq "Generation2"}|Out-GridView -Title "Select VM to boot from Network" -passthru; $vmswitch = Get-VMNetworkAdapter $vm; Set-VMFirmware $vm -FirstBootDevice $vmswitch
+$vm = Get-VM | Where-Object { $_.VirtualMachineSubType -eq "Generation2" } | Out-GridView -Title "Select VM to boot from Network" -passthru; $vmswitch = Get-VMNetworkAdapter $vm; Set-VMFirmware $vm -FirstBootDevice $vmswitch
 
 # Set Gen2-vm first boot option to Network Boot - Out-GridView - Multiple computers
-Get-VM|Where-Object {$_.VirtualMachineSubType -eq "Generation2"}|Out-GridView -Title "Select VM(s) to boot from Network" -passthru | foreach { $vmswitch = Get-VMNetworkAdapter $_.Name; Set-VMFirmware $_.Name -FirstBootDevice $vmswitch }
+Get-VM | Where-Object { $_.VirtualMachineSubType -eq "Generation2" } | Out-GridView -Title "Select VM(s) to boot from Network" -passthru | ForEach-Object { $vmswitch = Get-VMNetworkAdapter $_.Name; Set-VMFirmware $_.Name -FirstBootDevice $vmswitch }
 
 
 # Hyper-V new features 1803 ->
@@ -696,7 +808,7 @@ Add-NetNatStaticMapping -NatName “VMSwitchNat” -Protocol TCP -ExternalIPAddr
 Get-DedupStatus -Volume "F:"
 
 $dedupVolume = "F:"
- #Set-DedupVolume -Volume $dedupVolume -MinimumFileAgeDays 0
+#Set-DedupVolume -Volume $dedupVolume -MinimumFileAgeDays 0
  
 Write-Output "Starting Dedup Jobs..."
 $j = Start-DedupJob -Type Optimization -Volume $dedupVolume
@@ -706,14 +818,14 @@ $j = Start-DedupJob -Type Scrubbing -Volume $dedupVolume
 do {
     Write-Output "Them Dedup jobs is running.  Status:"
     $state = Get-DedupJob | Sort-Object StartTime -Descending 
-    $state | ft
-    if ($state -eq $null) {Write-Output "Completing, please wait..."}
-    sleep -s 5
+    $state | Format-Table
+    if ($state -eq $null) { Write-Output "Completing, please wait..." }
+    Start-Sleep -s 5
 } while ($state -ne $null)
  
 #clear
 Write-Output "Done DeDuping"
-Get-DedupStatus | fl 
+Get-DedupStatus | Format-List 
 
 #######################################################################
 
@@ -734,13 +846,13 @@ Get-NetAdapterBinding -ComponentID ms_tcpip6
 Get-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpip6
 
 # Get named network adapter Ipv6 binding - show all parameters
-Get-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpip6 |fl *
+Get-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpip6 | Format-List *
 
 # Get named network adapter Ipv6 binding enabled/disabled
 (Get-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpip6).Enabled
 
 # Get all adapters and Ipv6 enabled state
-Get-NetAdapterBinding -ComponentID ms_tcpip6 |select Name, Enabled, DisplayName
+Get-NetAdapterBinding -ComponentID ms_tcpip6 | Select-Object Name, Enabled, DisplayName
 
 # Disable Ipv6 binding on named network adapter
 Disable-NetAdapterBinding -Name "Adapter Name" -ComponentID ms_tcpip6
@@ -753,7 +865,7 @@ Enable-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpi
 Disable-NetAdapterBinding -Name 'vEthernet (Default Switch)' -ComponentID ms_tcpip6
 
 # Disable Ipv6 binding on all physical WLAN-adapters
-Get-NetAdapter -Physical | Where { $_.InterfaceType -eq 71 } | Foreach { Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 }
+Get-NetAdapter -Physical | Where-Object { $_.InterfaceType -eq 71 } | ForEach-Object { Disable-NetAdapterBinding -Name $_.Name -ComponentID ms_tcpip6 }
 
 #region regexp
 ################################# Regexp. Fun staff starts here :) ######################################
@@ -793,22 +905,22 @@ $regex = ^(<tr>)(.*?)<\/td>.*$
 
 #region Import export xml json csv
 
-$vm = get-VM | where {$_.Name -eq 'client01'}
+$vm = Get-VM | Where-Object { $_.Name -eq 'client01' }
 
 #Export object for later analysis
 $vm | Export-Clixml -Path ./vm.xml
 
 #Import from XML file
-$vm_from_xml = Import-CliXml -Path .\vm.xml
+$vm_from_xml = Import-Clixml -Path .\vm.xml
 
 
 #Export JSON / file
-$vm_json = $vm | ConvertTo-JSON
+$vm_json = $vm | ConvertTo-Json
 $vm_json | Out-File -FilePath ./vm_json.json
 
 #Import JSON from file
 # Read file as a whole - multi-line string
-$vm_from_imported_json = Get-Content -Raw -Path .\vm_json.json | ConvertFrom-JSON
+$vm_from_imported_json = Get-Content -Raw -Path .\vm_json.json | ConvertFrom-Json
 
 
 #endregion Import export xml json csv
@@ -847,12 +959,12 @@ Set-ADUser -Instance $User
 # Get AD-object related "sub-objects". In this case Bitlocker Recovery Key
 # Thanks Aapeli ;)
 $ComputerAccount = 'client01'
-$sb = Get-ADComputer $ComputerAccount | Select -ExpandProperty distinguishedname
+$sb = Get-ADComputer $ComputerAccount | Select-Object -ExpandProperty distinguishedname
  
 Get-ADObject -Filter * -SearchBase $sb
-Get-ADObject -Filter * -SearchBase $sb |fl *
-Get-ADObject -Filter {objectclass -eq 'msFVE-RecoveryInformation'} -SearchBase $sb
-Get-ADObject -Filter {objectclass -eq 'msFVE-RecoveryInformation'} -SearchBase $sb | Remove-ADObject -WhatIf
+Get-ADObject -Filter * -SearchBase $sb | Format-List *
+Get-ADObject -Filter { objectclass -eq 'msFVE-RecoveryInformation' } -SearchBase $sb
+Get-ADObject -Filter { objectclass -eq 'msFVE-RecoveryInformation' } -SearchBase $sb | Remove-ADObject -WhatIf
 
 ################
 
@@ -861,12 +973,16 @@ Get-ADObject -Filter {objectclass -eq 'msFVE-RecoveryInformation'} -SearchBase $
 # Petri's custom Cloud Managed USB-drive related tests. Regexp with Select-String
 
 # Check if ts.xml -files has certain string. Get all files from subfolders.
-Get-ChildItem -file -recurse -filter ts.xml|foreach { select-string 'Variable">InstallTeamsOnSharedDevice' $_.FullName }
-Get-ChildItem -file -recurse -filter ts.xml|foreach { select-string '<variable name="Variable">InstallTeamsOnPersonalDevice</variable>' $_.FullName }
+Get-ChildItem -file -recurse -filter ts.xml | ForEach-Object { Select-String 'Variable">InstallTeamsOnSharedDevice' $_.FullName }
+Get-ChildItem -file -recurse -filter ts.xml | ForEach-Object { Select-String '<variable name="Variable">InstallTeamsOnPersonalDevice</variable>' $_.FullName }
 
 #######################################################################
 
 # Misc staff
+
+# Create unique GUID
+New-Guid
+(New-Guid).Guid
 
 # Create unique GUID
 [guid]::newguid()
@@ -879,7 +995,7 @@ Get-ChildItem -file -recurse -filter ts.xml|foreach { select-string '<variable n
 
 # Microsoft.MicrosoftEdge_8wekyb3d8bbwe!MicrosoftEdge
 
-$installedapps = get-AppxPackage
+$installedapps = Get-AppxPackage
 
 $aumidList = @()
 foreach ($app in $installedapps) {
@@ -888,13 +1004,13 @@ foreach ($app in $installedapps) {
     }
 }
 
-$aumidList|sort
+$aumidList | Sort-Object
 #########
 
 # Activate and show program/process Window foreground
 # There can be several iexplore processes. "Hidden" process does not have MainWindowTitle and even can NOT activate that window
 $ProcessName = 'iexplore'
-(New-Object -ComObject WScript.Shell).AppActivate((get-process $ProcessName | Where { $_.MainWindowTitle -ne ''}).MainWindowTitle)
+(New-Object -ComObject WScript.Shell).AppActivate((Get-Process $ProcessName | Where-Object { $_.MainWindowTitle -ne '' }).MainWindowTitle)
 
 # Activate and show program/process Window
 # There can be several iexplore processes. "Hidden" process does not have MainWindowTitle and even can NOT activate that window
@@ -919,7 +1035,7 @@ function Show-Process($Process, [Switch]$Maximize) {
 }
 
 $ProcessName = 'iexplore'
-$Process = get-process $ProcessName | Where { $_.MainWindowTitle -ne ''}
+$Process = Get-Process $ProcessName | Where-Object { $_.MainWindowTitle -ne '' }
 Show-Process -Process $Process
 
 ###
@@ -944,20 +1060,20 @@ if (-not (Test-Administrator)) {
 
 @echo off
 
-    echo Checking if you have Administrator permissions...
+Write-Output Checking if you have Administrator permissions...
 
-    net session >nul 2>&1
-    if %errorLevel% == 0 (
-        echo You have Administrator permissions, starting installer...
-pushd "%~dp0"
-PowerShell.exe -Command "& {Start-Process PowerShell.exe -ArgumentList '-NonInteractive -NoProfile -ExecutionPolicy Bypass -File Files\InstallMinecraft.ps1' -Verb RunAs}"
-echo Installation Complete
-exit
-    ) else (
-        echo Failure: Administrator permission is required to install. Please right click InstallMinecraftEducationEdition.bat and Select Run as Administrator... 
-    )
+net.exe session >nul 2>&1
+if %errorLevel% == 0 (
+    Write-Output You have Administrator permissions, starting installer...
+    pushd "%~dp0"
+    powershell.exe -Command "& {Start-Process PowerShell.exe -ArgumentList '-NonInteractive -NoProfile -ExecutionPolicy Bypass -File Files\InstallMinecraft.ps1' -Verb RunAs}"
+    Write-Output Installation Complete
+    exit
+) else (
+    Write-Output Failure: Administrator permission is required to install. Please right click InstallMinecraftEducationEdition.bat and Select Run as Administrator... 
+)
 
-    pause >nul
+Pause >nul
 
 #########
 
@@ -967,7 +1083,7 @@ exit
 # SCCM, ConfigMgr
 
 # Load SCCM/ConfigMgr Powershell-module (put these lines to your Powershell-profile)
-import-module 'E:\Program Files\Microsoft Configuration Manager\AdminConsole\bin\ConfigurationManager.psd1'
+Import-Module 'E:\Program Files\Microsoft Configuration Manager\AdminConsole\bin\ConfigurationManager.psd1'
 Set-Location YOD:
 
 # Load SCCM/ConfigMgr Powershell-module
@@ -977,6 +1093,7 @@ Import-Module (Join-Path $(Split-Path $env:SMS_ADMIN_UI_PATH) ConfigurationManag
 #Set current directory to SCCM site
 Set-Location -Path $SCCMSitePath
 
+##### Device #####
 
 # SCCM/ConfigMgr find device
 Get-CMDevice -Name client02
@@ -990,11 +1107,14 @@ Get-CMDevice -Name client02 | Remove-CMDevice
 # SCCM/ConfigMgr Remove device without questions
 Get-CMDevice -Name client02 | Remove-CMDevice -Force
 
+
+##### Collection #####
+
 # Add computer to SCCM/ConfigMgr collection in different ways
 Add-CMDeviceCollectionDirectMembershipRule -CollectionName  "Collection_name" -ResourceId $(Get-CMDevice -Name "ComputerName").ResourceID
 Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceId $(Get-CMDevice -Name $ComputerName).ResourceID
 Add-CMDeviceCollectionDirectMembershipRule -CollectionID $CollectionID -ResourceId $(Get-CMDevice -Name $ComputerName).ResourceID
-Get-CMDeviceCollection -name "Windows 10 1709.1 Upgrade TS"|Add-CMDeviceCollectionDirectMembershipRule -ResourceId (Get-CMDevice -Name "ComputerName").ResourceID
+Get-CMDeviceCollection -name "Windows 10 1709.1 Upgrade TS" | Add-CMDeviceCollectionDirectMembershipRule -ResourceId (Get-CMDevice -Name "ComputerName").ResourceID
 
 # Get list of computer names from text file and add them to collection
 #
@@ -1002,12 +1122,59 @@ Get-CMDeviceCollection -name "Windows 10 1709.1 Upgrade TS"|Add-CMDeviceCollecti
 #
 # I will update these examples later
 #
-Get-Content "C:\temp\computers.txt" | Foreach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionID "YOD0001A" -ResourceID (Get-CMDevice -Name $_).ResourceID }
-Get-Content "C:\temp\computers.txt" | Foreach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceID (Get-CMDevice -Name $_).ResourceID }
+Get-Content "C:\temp\computers.txt" | ForEach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionID "YOD0001A" -ResourceID (Get-CMDevice -Name $_).ResourceID }
+Get-Content "C:\temp\computers.txt" | ForEach-Object { Add-CMDeviceCollectionDirectMembershipRule -CollectionName  $CollectionName -ResourceID (Get-CMDevice -Name $_).ResourceID }
+
+##### Packages, Programs #####
+
+# Find package by id
+Get-CMPackage -Id "YOD00007"
+
+# Find package by name
+Get-CMPackage -Name "Configuration Manager Client Piloting Package"
+
+# Find program by packageid
+Get-CMProgram -PackageId "YOD0003C"
+
+# Find program by PackageName
+Get-CMProgram -PackageName 'Foobar'
+
+# Find program by ProgramName
+Get-CMProgram -ProgramName "Setup"
+
+# Find Deployment by DeploymentId
+Get-CMDeployment -DeploymentId 'YOD20023'
+
+# Find Deployment by ProgramName
+Get-CMDeployment -ProgramName 'Copy Windows Performance Toolkit files'
+
+# Find Deployment by SoftwareName
+Get-CMDeployment -SoftwareName 'Copy Windows Performance Toolkit files (Copy Windows Performance Toolkit files)'
+
+# Find Deployment by CollectionName
+Get-CMDeployment -CollectionName 'Troubleshooting users'
+
 
 # Check if SCCM client is in provisioning mode
-ls HKLM:\Software\Microsoft\CcmExec
+# https://garytown.com/configmgr-client-provisioning-mode
+
+# Check if ProvisioningMode is true/false
+Get-ItemProperty -Path HKLM:\Software\Microsoft\CCM\CcmExec -Name "ProvisioningMode"
+
+# Does not work on Powershell 3.0 or earlier
+Get-ItemPropertyValue -Path HKLM:\Software\Microsoft\CCM\CcmExec -Name "ProvisioningMode"
+# Workaround
+(Get-ItemProperty -Path HKLM:\Software\Microsoft\CCM\CcmExec -Name "ProvisioningMode").ProvisioningMode
+
 Get-WmiObject -Namespace "root\ccm" -Class "SMS_Client"
+
+# Exit SCCM Client Provisioning mode
+#PowerShell:
+Invoke-WmiMethod -Namespace "root\ccm" -Class "SMS_Client" -Name "SetClientProvisioningMode" $false
+
+#CommandLine:
+WMIC.exe /namespace:\\root\ccm path sms_client CALL SetClientProvisioningMode "False" /NOINTERACTIVE
+
 
 # Find Package by Id
 # https://docs.microsoft.com/en-us/powershell/module/configurationmanager/get-cmpackage?view=sccm-ps
@@ -1023,19 +1190,18 @@ Get-CMDeployment -DeploymentId "DeploymentId"
 #https://blogs.technet.microsoft.com/configmgrdogs/2014/09/03/wmi-powershell-and-the-configuration-manager-client/
 
 
-
 #######################################################################
 
 #Delete specific user profile by path
-(Get-WmiObject -Class Win32_UserProfile | Where-Object {$_.LocalPath -eq "C:\Users\test55"}).Delete()
+(Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.LocalPath -eq "C:\Users\test55" }).Delete()
 
 
 # Show Windows 10 user profiles in Out-GridView and delete selected profiles
-$UserLocalPaths = Get-WmiObject -Class Win32_UserProfile|select LocalPath|sort LocalPath|out-gridview -title "Delete user profile" -Passthru;
+$UserLocalPaths = Get-WmiObject -Class Win32_UserProfile | Select-Object LocalPath | Sort-Object LocalPath | Out-GridView -title "Delete user profile" -Passthru;
 foreach ($UserLocalPath in $UserLocalPaths) {
-    (Get-WmiObject -Class Win32_UserProfile | Where-Object {$_.LocalPath -eq "$($UserLocalPath.LocalPath)"}).Delete();
+    (Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.LocalPath -eq "$($UserLocalPath.LocalPath)" }).Delete();
     
-    if ($?) {Write-Output "Deleted user profile $($UserLocalPath.LocalPath)"} else {Write-Output "Error could NOT delete user profile! $($UserLocalPath.LocalPath)"}
+    if ($?) { Write-Output "Deleted user profile $($UserLocalPath.LocalPath)" } else { Write-Output "Error could NOT delete user profile! $($UserLocalPath.LocalPath)" }
 }
 
 
@@ -1048,13 +1214,13 @@ foreach ($UserLocalPath in $UserLocalPaths) {
 
 # Get profile folders from C:\Users\
 $DaysOldUserProfiles = 1
-$UserLocalPaths = Get-ChildItem -Directory C:\Users | Where { $_.LastWriteTime -le ((Get-Date).AddDays(-$DaysOldUserProfiles)) } |select FullName|sort FullName|out-gridview -title "Delete user profile older than $DaysOldUserProfiles days"
+$UserLocalPaths = Get-ChildItem -Directory C:\Users | Where-Object { $_.LastWriteTime -le ((Get-Date).AddDays(-$DaysOldUserProfiles)) } | Select-Object FullName | Sort-Object FullName | Out-GridView -title "Delete user profile older than $DaysOldUserProfiles days"
 
 # Delete selected user profiles
 foreach ($UserLocalPath in $UserLocalPaths) {
-    (Get-WmiObject -Class Win32_UserProfile | Where-Object {$_.LocalPath -eq "$($UserLocalPath.LocalPath)"}).Delete()
+    (Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.LocalPath -eq "$($UserLocalPath.LocalPath)" }).Delete()
    
-    if ($?) {Write-Output "Deleted user profile $($UserLocalPath.LocalPath)"} else {Write-Output "Error could NOT delete user profile! $($UserLocalPath.LocalPath)"}
+    if ($?) { Write-Output "Deleted user profile $($UserLocalPath.LocalPath)" } else { Write-Output "Error could NOT delete user profile! $($UserLocalPath.LocalPath)" }
 }
 #######
 
@@ -1092,7 +1258,7 @@ function Show-Process($Process, [Switch]$Maximize) {
     $null = $type::SetForegroundWindow($hwnd) 
 }
 
-$ieProc = Get-Process | ? { $_.MainWindowHandle -eq $ie.HWND }
+$ieProc = Get-Process | Where-Object { $_.MainWindowHandle -eq $ie.HWND }
 Show-Process $ieProc -Maximize
 
 #######################################################################
@@ -1146,9 +1312,9 @@ catch {
 $LabelName = "USB-drive"
 
 $selectedDiskNumber = 9999
-$disk = get-disk|where {$_.BusType -eq "USB"}
+$disk = Get-Disk | Where-Object { $_.BusType -eq "USB" }
 
-$selectedDisk = $disk|Out-GridView -Title "Select USB-drive to format" -PassThru
+$selectedDisk = $disk | Out-GridView -Title "Select USB-drive to format" -PassThru
 
 # Stop if nothing is selected
 if (!$selectedDisk) {
@@ -1246,7 +1412,7 @@ function Create_Local_Useraccount {
     # Name: Users
     # SID: S-1-5-32-545
     
-    $UsersGroupName = Gwmi win32_group -filter "LocalAccount = $TRUE And SID = 'S-1-5-32-545'" | select -expand name
+    $UsersGroupName = Get-WmiObject win32_group -filter "LocalAccount = $TRUE And SID = 'S-1-5-32-545'" | Select-Object -expand name
     Add-LocalGroupMember -Group $UsersGroupName -Member $Username
 
     # Add user to local Administrators group
@@ -1257,7 +1423,7 @@ function Create_Local_Useraccount {
     #&net user $UserName /passwordreq:no
 
     # Make sure user needs to have password. Should be default value
-    & net user $UserName /passwordreq:yes
+    & net.exe user $UserName /passwordreq:yes
 
 }
 
@@ -1284,18 +1450,18 @@ Add-WindowsCapability -Online -Name 'NetFX3~~~~'
 #State : NotPresent
 
 # Get .NetFrameWork3
-Get-WindowsCapability -Online |Where {$_.Name -eq "NetFX3~~~~" }
+Get-WindowsCapability -Online | Where-Object { $_.Name -eq "NetFX3~~~~" }
 
 # Get .NetFrameWork3
-(Get-WindowsCapability -Online |Where {$_.Name -eq "NetFX3~~~~" }).State
+(Get-WindowsCapability -Online | Where-Object { $_.Name -eq "NetFX3~~~~" }).State
 
 # Install .NetFrameWork3 if it is not installed
 $Capability = 'NetFX3~~~~'
-if (((Get-WindowsCapability -Online |Where {$_.Name -eq $Capability }).State) -eq 'NotPresent') {
+if (((Get-WindowsCapability -Online | Where-Object { $_.Name -eq $Capability }).State) -eq 'NotPresent') {
     Write-Output "Install Feature on Demand Package: $Capability"
     $Return = Add-WindowsCapability -Online -Name $Capability
 
-    if($Return.RestartNeeded -eq $True) {
+    if ($Return.RestartNeeded -eq $True) {
         Write-Output "Computer needs to be restarted to finish installation"
     }
 }
@@ -1310,10 +1476,10 @@ RestartNeeded : False
 ##### .NetFramework3 #####
 
 # List Finnish language packs
-Get-WindowsCapability -Online | where {$_.Name -like "*fi-FI*" }
+Get-WindowsCapability -Online | Where-Object { $_.Name -like "*fi-FI*" }
 
 # Install Finnish language packs
-Get-WindowsCapability -Online | where {$_.Name -like "*fi-FI*" } | Foreach { Write-Output "Installing package: $($_.Name)"; Add-WindowsCapability -Online -Name $_.Name }
+Get-WindowsCapability -Online | Where-Object { $_.Name -like "*fi-FI*" } | ForEach-Object { Write-Output "Installing package: $($_.Name)"; Add-WindowsCapability -Online -Name $_.Name }
 
 
 ################### dism, WinPE, offline, image ###################
@@ -1322,21 +1488,21 @@ Get-WindowsCapability -Online | where {$_.Name -like "*fi-FI*" } | Foreach { Wri
 # https://docs.microsoft.com/en-us/powershell/module/dism/?view=win10-ps
 
 # List Feature On-Demand capabilities
-dism /online /get-capabilities
+Dism.exe /online /get-capabilities
 
 
 # List installed FOD-packages
 #Capability Identity : Language.OCR~~~de-DE~0.0.1.0
 #State : Installed
 # We use Select-String to find if FOD is installed and then we return that line and previous line
-dism /online /get-capabilities|Select-String "Installed" -Context 1, 0
+Dism.exe /online /get-capabilities | Select-String "Installed" -Context 1, 0
 
 # Install FOD-package
-DISM.exe /Online /Add-Capability /CapabilityName:Language.Basic~~~en-US~0.0.1.0
+Dism.exe /Online /Add-Capability /CapabilityName:Language.Basic~~~en-US~0.0.1.0
 
 
 # List Finnish language packs
-dism /online /get-capabilities|where {$_ -like "*fi-FI*" }
+Dism.exe /online /get-capabilities | Where-Object { $_ -like "*fi-FI*" }
 <#
 
 PS C:\temp> dism /online /get-capabilities|where {$_ -like "*fi-FI*" }
@@ -1349,7 +1515,7 @@ Capability Identity : Language.UI.Client~~~fi-FI~
 #>
 
 # List Finnish language pack exact names
-dism /online /get-capabilities|where {$_ -like "*fi-FI*" } | Foreach { ($_.Split(" "))[3] }
+Dism.exe /online /get-capabilities | Where-Object { $_ -like "*fi-FI*" } | ForEach-Object { ($_.Split(" "))[3] }
 <#
 Language.Basic~~~fi-FI~0.0.1.0
 Language.Handwriting~~~fi-FI~0.0.1.0
@@ -1363,12 +1529,16 @@ Language.UI.Client~~~fi-FI~
 #dism /online /get-capabilities|where {$_ -like "*fi-FI*" } | Foreach { DISM.exe /Online /Add-Capability /CapabilityName:(($_.Split(" "))[3]) }
 
 # Works fi-FI
-dism /online /get-capabilities|where {$_ -like "*fi-FI*" } | Foreach { $PackageName = (($_.Split(" "))[3]); Write-Output "Install: $PackageName"; DISM.exe /Online /Add-Capability /CapabilityName:$PackageName }
+Dism.exe /online /get-capabilities | Where-Object { $_ -like "*fi-FI*" } | ForEach-Object { $PackageName = (($_.Split(" "))[3]); Write-Output "Install: $PackageName"; Dism.exe /Online /Add-Capability /CapabilityName:$PackageName }
 
 # Works de-DE
-dism /online /get-capabilities|where {$_ -like "*de-DE*" } | Foreach { $PackageName = (($_.Split(" "))[3]); Write-Output "Install: $PackageName"; DISM.exe /Online /Add-Capability /CapabilityName:$PackageName }
+Dism.exe /online /get-capabilities | Where-Object { $_ -like "*de-DE*" } | ForEach-Object { $PackageName = (($_.Split(" "))[3]); Write-Output "Install: $PackageName"; Dism.exe /Online /Add-Capability /CapabilityName:$PackageName }
 
 
+# Install drivers to WinPE
+Mount-WindowsImage -Path .\mount -ImagePath .\LiteTouchPE_x64.wim -Index 1
+Add-WindowsDriver -Path ".\mount" -Driver ".\WinPE_drivers_to_add" -Recurse > ".\driveradd.txt"
+Dismount-WindowsImage -Path .\mount -Save
 
 
 #######################################################################
@@ -1452,7 +1622,7 @@ $speak.Speak("The current date and time is $(Get-Date)")
 $speak.voice
 
 $speak.GetInstalledVoices()
-$speak.GetInstalledVoices() | Foreach { $_.VoiceInfo }
+$speak.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo }
 
 # Save to wav file
 $speak.SetOutputToWaveFile("$($PWD)\Speech.wav")
@@ -1462,10 +1632,108 @@ Get-Item .\Speech.wav
 
 #######################################################################
 
+# Get Display/screen information
 
+#https://docs.microsoft.com/en-us/dotnet/api/system.windows.forms.screen.allscreens?view=netframework-4.7.2#System_Windows_Forms_Screen_AllScreens
+$AllScreens = [System.Windows.Forms.Screen]::AllScreens
+
+
+#######################################################################
+
+# Extract icon from exe
+$icon = ([System.Drawing.Icon]::ExtractAssociatedIcon("C:\windows\System32\cmd.exe"))
+
+#######################################################################
+# Base64
+
+# Convert images to base64 which are used in WPF scripts
+
+$ImageFilePath = "C:\temp\picture.png"
+[convert]::ToBase64String((Get-Content $ImageFilePath -encoding byte)) | Set-Clipboard
+
+#######################################################################
+# Configure Windows 10 Default user profile offline (ntuser.dat)
+
+&reg.exe LOAD HKLM\DEFUSER C:\Users\Default\NTUSER.DAT
+$regPath = 'HKLM:\DEFUSER\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+New-ItemProperty $regPath -Name "WallpaperStyle" -Value "Fill" -PropertyType "String" -Force
+New-ItemProperty $regPath -Name "Wallpaper" -Value $LockScreenImage -PropertyType "String" -Force
+Log -Message "User desktop background image set. Success: $?" -Component "$($env:computername)" -LogFile $LogFile
+
+$unloaded = 1
+$attempts = 0
+while (($unloaded -ne 0) -and ($attempts -le 5)) {
+    Log -Message "Unloading Default User registry, attempt: $attempts" -Component "$($env:computername)" -LogFile $LogFile
+    [gc]::Collect() # necessary call to be able to unload registry hive
+    Start-Sleep -Seconds 1
+    &reg.exe UNLOAD HKLM\DEFUSER
+    $unloaded = $LastExitCode
+    $attempts += 1        
+}
+
+if ($unloaded -ne 0) {
+    Log -Message "Error: Could NOT unload Default User registry. Users may not succeed on logins." -Component "$($env:computername)" -LogFile $LogFile
+}
+
+#######################################################################
+# Windows Drivers
+
+# Find what device is using inf-driver
+Get-WmiObject Win32_pnpsigneddriver | Where-Object { $_.InfName -like 'oem50.inf' }
+
+# Check if there are problems with drivers
+# If we get anything then that device have problems with driver
+Get-WmiObject Win32_PNPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+Get-WmiObject Win32_PNPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 } | Select-Object Name, Description, DeviceID, PNPDeviceID, Status
+
+# Add and install Windows drivers from subfolders
+& pnputil.exe /add-driver *inf /install /subdirs
+
+
+#####
+
+# Delete all oem-drivers from computer
+
+# Check that command works, does not remove driver, just shows what command would be run
+Get-WMIObject Win32_pnpsigneddriver | where {$_.infname -like 'oem*.inf' } | select infname | foreach { write-host "& pnputilFOO.exe /delete-driver $($_.InfName) /Force" }
+
+# Windows 10 pnputil syntax (new syntax)
+Get-WMIObject Win32_pnpsigneddriver | where {$_.infname -like 'oem*.inf' } | select infname | foreach { & pnputil.exe /delete-driver $($_.InfName) /Force }
+
+# Windows 7 pnputil syntax
+Get-WMIObject Win32_pnpsigneddriver | where {$_.infname -like 'oem*.inf' } | select infname | foreach { & pnputil.exe -f -d $($_.InfName) }
+
+#####
+
+
+#######################################################################
+
+# Delete all folder Child-Items (files and directories) but leave folder in place
+Remove-Item C:\temp\test\* -Recurse -Force
+
+# Delete all C:\temp\test -folder Child-Items (files and directories) AND delete also C:\temp\test -folder itself
+Remove-Item C:\temp\test -Recurse -Force
+
+# Delete subdirectories which start with name sp
+Get-ChildItem C:\temp\test -Filter 'sp*' -Directory | Remove-Item  -Recurse -Force
+
+# Remember -WhatIf option. Test what would be deleted
+Get-ChildItem C:\temp\test -Filter 'sp*' -Directory | Remove-Item  -Recurse -Force -WhatIf
+
+
+#######################################################################
+
+# Export Autopilot device hash
+
+Set-ExecutionPolicy bypass -scope Process
+mkdir c:\temp
+Set-Location c:\temp
+Save-Script -Name Get-WindowsAutoPilotInfo -Path 'c:\temp' -RequiredVersion 1.3
+.\Get-WindowsAutoPilotInfo.ps1 -OutputFile c:\temp\MyComputers.csv
 
 #######################################################################
 
 
 
-#######################################################################
+
